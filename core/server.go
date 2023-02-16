@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -34,6 +35,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	user.Online()
 
+	isLive := make(chan bool)
 	go func() {
 		buf := make([]byte, 4096)
 		for {
@@ -50,13 +52,22 @@ func (s *Server) handleConn(conn net.Conn) {
 
 			log.Println("Conn read msg ", string(buf))
 			user.HandleMsg(buf)
-
+			isLive <- true
 		}
 	}()
 	// {"type":"rename","to":"","body":"eddie"}
 	// {"type":"chat","to":"eddie1","body":"hello"}
 	// {"type":"onlineList","to":"","body":" "}{"type":"onlineList"}
-	select {}
+	for {
+		select {
+		case <-isLive:
+		case <-time.After(time.Second * 30):// 超时强踢
+			user.SendMsg("timeout!")
+			close(user.C)
+			conn.Close()
+			break
+		}
+	}
 }
 
 // BroadCast 消息广播

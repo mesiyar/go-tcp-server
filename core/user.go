@@ -125,8 +125,18 @@ func (u *User) getOnlineList() {
 func (u *User) handleChat(m *Message) {
 	u.server.MapLock.Lock()
 	defer u.server.MapLock.Unlock()
+	sm := &SendMsg{
+		Type: "chat",
+		From: u.Name,
+		Body: m.Body,
+	}
+	msg, err := json.Marshal(sm)
+	if err!= nil {
+		log.Printf("Marshal message error %v", err)
+        return
+    }
 	if m.To == "" {
-		u.server.BroadCast(u, m.Body)
+		u.server.BroadCast(u, string(msg))
 		return
 	}
 	_, ok := u.server.OnlineMap[m.To]
@@ -134,6 +144,6 @@ func (u *User) handleChat(m *Message) {
 		u.SendMsg("user " + m.To + "is not online !")
 		return
 	}
-	msg :=
-	u.server.OnlineMap[m.To].SendMsg(m.Body)
+
+	u.server.OnlineMap[m.To].SendMsg(string(msg))
 }
