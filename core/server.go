@@ -36,13 +36,16 @@ func (s *Server) handleConn(conn net.Conn) {
 	user.Online()
 
 	isLive := make(chan bool)
+	isOffline := make(chan bool)
 	go func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := conn.Read(buf)
 			fmt.Println("buff len: ", n)
 			if n == 0 { // 用户下线
+				fmt.Println("offline")
 				user.Offline()
+				isOffline <- true
 				return
 			}
 
@@ -60,12 +63,17 @@ func (s *Server) handleConn(conn net.Conn) {
 	// {"type":"onlineList","to":"","body":" "}{"type":"onlineList"}
 	for {
 		select {
+		case <-isOffline:
+            return
 		case <-isLive:
-		case <-time.After(time.Second * 30):// 超时强踢
+		case <-time.After(time.Second * 5): // 超时强踢
 			user.SendMsg("timeout!")
+			s.MapLock.Lock()
+			user.conn.Close()
 			close(user.C)
-			conn.Close()
-			break
+			delete(s.OnlineMap, user.Name)
+			s.MapLock.Unlock()
+			return
 		}
 	}
 }

@@ -39,12 +39,14 @@ func NewUser(conn net.Conn, s *Server) *User {
 // ListenMessage 监听消息
 func (u *User) ListenMessage() {
 	for {
-		msg := <-u.C
-		_, err := u.conn.Write([]byte(msg + "\r\n"))
-		if err != nil {
-			log.Printf("send to user %s failed error %v", u.Name, err)
+		if msg, ok := <-u.C; ok {
+			_, err := u.conn.Write([]byte(msg + "\r\n"))
+			if err != nil {
+				log.Printf("send to user %s failed error %v", u.Name, err)
+			}
+		} else {
+			return
 		}
-
 	}
 }
 
@@ -131,10 +133,10 @@ func (u *User) handleChat(m *Message) {
 		Body: m.Body,
 	}
 	msg, err := json.Marshal(sm)
-	if err!= nil {
+	if err != nil {
 		log.Printf("Marshal message error %v", err)
-        return
-    }
+		return
+	}
 	if m.To == "" {
 		u.server.BroadCast(u, string(msg))
 		return
